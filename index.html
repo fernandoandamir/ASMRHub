@@ -31,43 +31,61 @@ canvas{display:block;width:100%;height:100%;flex:1;}
 
 <div id="home">
   <h1>ASMRHub</h1>
-  <p class="tagline">INTERACTIVE · SATISFYING · SOUNDS</p>
+  <p class="tagline">INTERACTIVE  SATISFYING  SOUNDS</p>
   <div class="grid">
     <div class="card" onclick="launch('flow')">
       <span class="card-tag">AMBIENT</span>
-      <span class="card-icon">🌊</span>
+      <span class="card-icon"></span>
       <div class="card-title">Flow Field</div>
       <div class="card-desc">Particles drift through an invisible force field. Move to guide, click to attract.</div>
     </div>
     <div class="card" onclick="launch('squishy')">
       <span class="card-tag">TACTILE</span>
-      <span class="card-icon">🟢</span>
+      <span class="card-icon"></span>
       <div class="card-title">Squishy Blob</div>
       <div class="card-desc">Poke, drag and squish a jiggly blob. Full squelchy audio.</div>
     </div>
     <div class="card" onclick="launch('rain')">
       <span class="card-tag">RELAXING</span>
-      <span class="card-icon">🌧️</span>
+      <span class="card-icon"></span>
       <div class="card-title">Rain on Glass</div>
       <div class="card-desc">Tap to create droplets. Rain patters endlessly on a dark pane.</div>
     </div>
     <div class="card" onclick="launch('bubble')">
       <span class="card-tag">SATISFYING</span>
-      <span class="card-icon">🔵</span>
+      <span class="card-icon"></span>
       <div class="card-title">Bubble Wrap</div>
       <div class="card-desc">An infinite sheet of bubble wrap. Every pop sounds different.</div>
     </div>
     <div class="card" onclick="launch('sand')">
       <span class="card-tag">ASMR</span>
-      <span class="card-icon">🟤</span>
+      <span class="card-icon"></span>
       <div class="card-title">Kinetic Sand</div>
       <div class="card-desc">Drag a blade through compacted sand. Slice, scrape, satisfy.</div>
+    </div>
+    <div class="card" onclick="launch('ripple')">
+      <span class="card-tag">CALMING</span>
+      <span class="card-icon"></span>
+      <div class="card-title">Water Ripples</div>
+      <div class="card-desc">Tap anywhere to drop a stone. Ripples spread and overlap on a still pond.</div>
+    </div>
+    <div class="card" onclick="launch('keyboard')">
+      <span class="card-tag">SATISFYING</span>
+      <span class="card-icon"></span>
+      <div class="card-title">Mechanical Keyboard</div>
+      <div class="card-desc">Type or click keys. Every keystroke has its own clicky, clacky sound.</div>
+    </div>
+    <div class="card" onclick="launch('velcro')">
+      <span class="card-tag">TACTILE</span>
+      <span class="card-icon"></span>
+      <div class="card-title">Velcro Tear</div>
+      <div class="card-desc">Click and drag to peel apart an infinite strip of velcro. So satisfying.</div>
     </div>
   </div>
 </div>
 
 <div id="scene">
-  <button id="back" onclick="goHome()">← back</button>
+  <button id="back" onclick="goHome()"> back</button>
   <div id="scene-title"></div>
   <canvas id="c"></canvas>
 </div>
@@ -392,7 +410,250 @@ const sandScene=(()=>{
   };
 })();
 
-const scenes={flow:flowScene,squishy:squishyScene,rain:rainScene,bubble:bubbleScene,sand:sandScene};
+/* SCENE 6 - WATER RIPPLES */
+const rippleScene=(()=>{
+  let ripples=[],autoT=0;
+  function playPlop(size){
+    if(!actx)return;
+    const t=actx.currentTime,freq=180+Math.random()*120-size*60;
+    const g=actx.createGain();g.connect(actx.destination);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.18+size*0.1,t+0.008);g.gain.exponentialRampToValueAtTime(0.001,t+0.18+size*0.1);
+    const o=actx.createOscillator();o.type='sine';
+    o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(freq*0.3,t+0.15);
+    o.connect(g);o.start(t);o.stop(t+0.2);
+    const g2=actx.createGain();g2.connect(actx.destination);
+    g2.gain.setValueAtTime(0.07,t);g2.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+    const o2=actx.createOscillator();o2.type='sine';
+    o2.frequency.setValueAtTime(freq*2.5,t);o2.frequency.exponentialRampToValueAtTime(freq*0.8,t+0.06);
+    o2.connect(g2);o2.start(t);o2.stop(t+0.07);
+  }
+  function addRipple(x,y,manual){
+    const size=manual?0.5+Math.random()*0.5:0.2+Math.random()*0.4;
+    playPlop(size);
+    ripples.push({x,y,rings:[{r:0,alpha:1}],size,born:Date.now()});
+  }
+  function mc(e){const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;addRipple(s.clientX-r.left,s.clientY-r.top,true);}
+  return{title:'WATER RIPPLES',
+    init(){
+      ripples=[];autoT=0;
+      canvas.addEventListener('click',mc);
+      canvas.addEventListener('touchstart',e=>{e.preventDefault();mc(e);},{passive:false});
+    },
+    destroy(){canvas.removeEventListener('click',mc);},
+    draw(){
+      autoT++;
+      if(autoT%90===0)addRipple(Math.random()*W,Math.random()*H,false);
+      ctx.fillStyle='#0a1a2e';ctx.fillRect(0,0,W,H);
+      // subtle water texture
+      for(let i=0;i<3;i++){
+        const y=((Date.now()*0.02+i*200)%H);
+        ctx.strokeStyle='rgba(100,160,220,0.04)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+      }
+      ripples.forEach(rp=>{
+        rp.rings.forEach(ring=>{
+          ring.r+=1.2+rp.size;
+          ring.alpha=Math.max(0,ring.alpha-0.008-rp.size*0.003);
+          const ry=ring.r*0.38;
+          ctx.strokeStyle=`rgba(120,190,255,${ring.alpha*0.6})`;
+          ctx.lineWidth=Math.max(0.3,1.5*(1-ring.r/(300+rp.size*200)));
+          ctx.beginPath();ctx.ellipse(rp.x,rp.y,ring.r,ry,0,0,Math.PI*2);ctx.stroke();
+          // inner bright ring
+          ctx.strokeStyle=`rgba(200,230,255,${ring.alpha*0.25})`;
+          ctx.lineWidth=0.5;
+          ctx.beginPath();ctx.ellipse(rp.x,rp.y,ring.r*0.85,ry*0.85,0,0,Math.PI*2);ctx.stroke();
+        });
+        if(rp.rings[rp.rings.length-1].r>30&&rp.rings.length<5)rp.rings.push({r:0,alpha:0.8});
+        rp.rings=rp.rings.filter(r=>r.alpha>0);
+      });
+      ripples=ripples.filter(rp=>rp.rings.length>0);
+      // droplet splash dot
+      ripples.forEach(rp=>{
+        const age=(Date.now()-rp.born)/1000;
+        if(age<0.08){
+          ctx.fillStyle=`rgba(180,220,255,${0.8*(1-age/0.08)})`;
+          ctx.beginPath();ctx.arc(rp.x,rp.y,3+rp.size*4*(1-age/0.08),0,Math.PI*2);ctx.fill();
+        }
+      });
+    }
+  };
+})();
+
+/* SCENE 7 - MECHANICAL KEYBOARD */
+const keyboardScene=(()=>{
+  const ROWS=[
+    ['`','1','2','3','4','5','6','7','8','9','0','-','=','DEL'],
+    ['TAB','q','w','e','r','t','y','u','i','o','p','[',']','\\'],
+    ['CAPS','a','s','d','f','g','h','j','k','l',';',"'",'ENTER'],
+    ['SHIFT','z','x','c','v','b','n','m',',','.','/','SHIFT'],
+    ['','SPACE','']
+  ];
+  let keys=[],pressedKeys=new Set(),frame=0;
+  function buildKeys(){
+    keys=[];
+    const totalW=Math.min(W-40,900),startX=(W-totalW)/2;
+    const keyH=Math.min(56,(H-120)/6),gap=4;
+    const startY=(H-(keyH+gap)*5)/2+20;
+    ROWS.forEach((row,ri)=>{
+      const isSpaceRow=ri===4;
+      if(isSpaceRow){
+        const spaceW=totalW*0.5,spaceX=startX+totalW*0.25;
+        keys.push({label:'SPACE',x:spaceX,y:startY+ri*(keyH+gap),w:spaceW,h:keyH,pressed:false,anim:0,keyCode:'Space'});
+        return;
+      }
+      const n=row.length;
+      const kw=(totalW-(n-1)*gap)/n;
+      row.forEach((label,ci)=>{
+        const w=label==='ENTER'||label==='SHIFT'||label==='DEL'||label==='TAB'||label==='CAPS'?kw*1.5+gap/2:kw;
+        keys.push({label,x:startX+ci*(kw+gap),y:startY+ri*(keyH+gap),w,h:keyH,pressed:false,anim:0,keyCode:label});
+      });
+    });
+  }
+  function playClick(type){
+    if(!actx)return;
+    const t=actx.currentTime;
+    const isSpace=type==='Space';
+    const freq=isSpace?120:800+Math.random()*400;
+    const g=actx.createGain();g.connect(actx.destination);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(isSpace?0.25:0.3,t+0.003);
+    g.gain.exponentialRampToValueAtTime(0.001,t+(isSpace?0.12:0.06));
+    const o=actx.createOscillator();o.type=isSpace?'sine':'square';
+    o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(freq*0.4,t+0.05);
+    o.connect(g);o.start(t);o.stop(t+0.08);
+    const g2=actx.createGain();g2.connect(actx.destination);
+    g2.gain.setValueAtTime(0.15,t);g2.gain.exponentialRampToValueAtTime(0.001,t+0.03);
+    const buf=actx.createBuffer(1,actx.sampleRate*0.03,actx.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(actx.sampleRate*0.005));
+    const src=actx.createBufferSource();src.buffer=buf;src.connect(g2);src.start(t);
+  }
+  function triggerKey(k){if(!k||k.pressed)return;k.pressed=true;k.anim=1;playClick(k.keyCode);setTimeout(()=>{k.pressed=false;},120);}
+  function getKey(x,y){return keys.find(k=>x>=k.x&&x<=k.x+k.w&&y>=k.y&&y<=k.y+k.h);}
+  function mc(e){const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;triggerKey(getKey(s.clientX-r.left,s.clientY-r.top));}
+  function kd(e){
+    e.preventDefault();
+    const label=e.key==='Backspace'?'DEL':e.key==='Tab'?'TAB':e.key==='CapsLock'?'CAPS':e.key==='Enter'?'ENTER':e.key===' '?'SPACE':e.key==='Shift'?'SHIFT':e.key.toLowerCase();
+    const k=keys.find(k=>k.label.toLowerCase()===label.toLowerCase());
+    triggerKey(k);
+  }
+  return{title:'MECHANICAL KEYBOARD',
+    init(){
+      buildKeys();
+      canvas.addEventListener('mousedown',mc);
+      canvas.addEventListener('touchstart',e=>{e.preventDefault();mc(e);},{passive:false});
+      window.addEventListener('keydown',kd);
+    },
+    resize(){buildKeys();},
+    destroy(){canvas.removeEventListener('mousedown',mc);window.removeEventListener('keydown',kd);},
+    draw(){
+      frame++;
+      ctx.fillStyle='#1a1a24';ctx.fillRect(0,0,W,H);
+      // board bg
+      const pad=20,bx=keys.reduce((m,k)=>Math.min(m,k.x),Infinity)-pad;
+      const by=keys.reduce((m,k)=>Math.min(m,k.y),Infinity)-pad;
+      const bw=keys.reduce((m,k)=>Math.max(m,k.x+k.w),0)-bx+pad*2;
+      const bh=keys.reduce((m,k)=>Math.max(m,k.y+k.h),0)-by+pad*2;
+      ctx.fillStyle='#252530';ctx.beginPath();ctx.roundRect(bx,by,bw,bh,12);ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.stroke();
+      keys.forEach(k=>{
+        if(k.anim>0)k.anim=Math.max(0,k.anim-0.08);
+        const lift=k.pressed?2:0;
+        const bright=k.anim;
+        // shadow
+        ctx.fillStyle=`rgba(0,0,0,0.4)`;ctx.beginPath();ctx.roundRect(k.x+2,k.y+4-lift,k.w,k.h,6);ctx.fill();
+        // key body
+        const col=k.pressed?`rgb(${80+Math.floor(bright*80)},${80+Math.floor(bright*60)},${120+Math.floor(bright*80)})`:'#2e2e3e';
+        ctx.fillStyle=col;ctx.beginPath();ctx.roundRect(k.x,k.y-lift,k.w,k.h,6);ctx.fill();
+        // top edge shine
+        ctx.strokeStyle=k.pressed?'rgba(180,160,255,0.5)':'rgba(255,255,255,0.1)';ctx.lineWidth=0.5;
+        ctx.beginPath();ctx.roundRect(k.x,k.y-lift,k.w,k.h,6);ctx.stroke();
+        // label
+        const fs=k.label.length>3?9:k.label.length>1?11:14;
+        ctx.fillStyle=k.pressed?'rgba(220,200,255,0.95)':'rgba(200,200,220,0.7)';
+        ctx.font=`${fs}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(k.label,k.x+k.w/2,k.y+k.h/2-lift);
+      });
+    }
+  };
+})();
+
+/* SCENE 8 - VELCRO */
+const velcroScene=(()=>{
+  let strips=[],dragging=false,dragX=0,dragY=0,tearY=0,maxTear=0,frame=0,lastRip=0;
+  const STRIP_W=320,STRIP_H=60,COLS=3;
+  function initStrips(){
+    strips=[];
+    const totalW=STRIP_W*COLS+40*(COLS-1);
+    const startX=(W-totalW)/2;
+    for(let c=0;c<COLS;c++){
+      const n=Math.ceil((H+100)/STRIP_H);
+      for(let r=0;r<n;r++){
+        strips.push({x:startX+c*(STRIP_W+40),y:r*STRIP_H-50,torn:false,tearPct:0,peeling:false,hookColor:c===0?'#e74c3c':c===1?'#3498db':'#2ecc71'});
+      }
+    }
+  }
+  function playRip(intensity){
+    if(!actx)return;const now=Date.now();if(now-lastRip<40)return;lastRip=now;
+    const t=actx.currentTime;
+    const buf=actx.createBuffer(1,actx.sampleRate*0.05,actx.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(actx.sampleRate*0.015));
+    const src=actx.createBufferSource();src.buffer=buf;
+    const f=actx.createBiquadFilter();f.type='bandpass';f.frequency.value=3000+Math.random()*2000;f.Q.value=0.5;
+    const g=actx.createGain();g.gain.setValueAtTime(Math.min(intensity*0.4,0.35),t);g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    src.connect(f);f.connect(g);g.connect(actx.destination);src.start(t);
+  }
+  function getStrip(x,y){return strips.find(s=>!s.torn&&x>=s.x&&x<=s.x+STRIP_W&&y>=s.y&&y<=s.y+STRIP_H);}
+  function md(e){const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;dragX=s.clientX-r.left;dragY=s.clientY-r.top;const st=getStrip(dragX,dragY);if(st){dragging=true;st.peeling=true;tearY=dragY;maxTear=st.y;}}
+  function mm(e){
+    if(!dragging)return;
+    const r=canvas.getBoundingClientRect(),s=e.touches?e.touches[0]:e;
+    const ny=s.clientY-r.top;const dy=Math.abs(ny-dragY);
+    dragY=ny;
+    strips.filter(s=>s.peeling).forEach(st=>{
+      st.tearPct=Math.min(1,(ny-st.y)/STRIP_H);
+      if(st.tearPct>=1){st.torn=true;st.peeling=false;playRip(3);}
+      else if(dy>1)playRip(dy/10);
+    });
+  }
+  function mu(){dragging=false;strips.forEach(s=>{if(s.peeling&&s.tearPct<1){s.peeling=false;s.tearPct=0;}});if(strips.every(s=>s.torn))setTimeout(initStrips,600);}
+  return{title:'VELCRO TEAR',
+    init(){initStrips();frame=0;canvas.addEventListener('mousedown',md);canvas.addEventListener('mousemove',mm);canvas.addEventListener('mouseup',mu);canvas.addEventListener('touchstart',e=>{e.preventDefault();md(e);},{passive:false});canvas.addEventListener('touchmove',e=>{e.preventDefault();mm(e);},{passive:false});canvas.addEventListener('touchend',mu);},
+    resize(){initStrips();},
+    destroy(){canvas.removeEventListener('mousedown',md);canvas.removeEventListener('mousemove',mm);canvas.removeEventListener('mouseup',mu);},
+    draw(){
+      frame++;
+      ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,W,H);
+      strips.forEach(s=>{
+        if(s.torn)return;
+        const tx=s.x,ty=s.y,tw=STRIP_W,th=STRIP_H;
+        const splitY=ty+th*s.tearPct;
+        // loop side (bottom/attached)
+        ctx.fillStyle='#e8e0d0';ctx.beginPath();ctx.roundRect(tx,ty,tw,th,4);ctx.fill();
+        // loop texture
+        ctx.strokeStyle='rgba(180,170,155,0.5)';ctx.lineWidth=1;
+        for(let xi=tx+6;xi<tx+tw-6;xi+=8){ctx.beginPath();ctx.arc(xi,ty+th*0.65,3,0,Math.PI*2);ctx.stroke();}
+        // hook side (top, peeling)
+        const peel=s.tearPct>0;
+        const hooky=peel?ty-s.tearPct*30:ty;
+        ctx.fillStyle=s.hookColor;
+        ctx.globalAlpha=1;
+        ctx.beginPath();ctx.roundRect(tx,hooky,tw,th*0.5+2,4);ctx.fill();
+        // hook texture dots
+        ctx.fillStyle='rgba(0,0,0,0.2)';
+        for(let xi=tx+5;xi<tx+tw-5;xi+=7){for(let yi=hooky+6;yi<hooky+th*0.4;yi+=7){ctx.beginPath();ctx.arc(xi,yi,1.5,0,Math.PI*2);ctx.fill();}}
+        ctx.globalAlpha=1;
+        // tear edge line
+        if(s.tearPct>0&&s.tearPct<1){
+          ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+          ctx.beginPath();ctx.moveTo(tx,splitY);ctx.lineTo(tx+tw,splitY);ctx.stroke();ctx.setLineDash([]);
+        }
+      });
+      ctx.fillStyle='rgba(255,255,255,0.18)';ctx.font='13px system-ui';ctx.textAlign='center';
+      ctx.fillText('click and drag down to tear',W/2,H-20);
+    }
+  };
+})();
+
+const scenes={flow:flowScene,squishy:squishyScene,rain:rainScene,bubble:bubbleScene,sand:sandScene,ripple:rippleScene,keyboard:keyboardScene,velcro:velcroScene};
 </script>
 </body>
 </html>
