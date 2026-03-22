@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flow Field</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; overflow: hidden; font-family: system-ui, sans-serif; }
+canvas { display: block; }
+#ui {
+  position: fixed; top: 20px; right: 20px;
+  display: flex; flex-direction: column; gap: 8px; z-index: 10;
+}
+.btn {
+  background: rgba(255,255,255,0.07);
+  border: 0.5px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.8);
+  font-size: 13px; padding: 7px 16px;
+  border-radius: 8px; cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s;
+}
+.btn:hover { background: rgba(255,255,255,0.15); }
+#info {
+  position: fixed; bottom: 20px; left: 20px;
+  color: rgba(255,255,255,0.25); font-size: 12px;
+  font-family: monospace; pointer-events: none;
+}
+#palette-name {
+  position: fixed; bottom: 20px; right: 20px;
+  color: rgba(255,255,255,0.2); font-size: 12px;
+  font-family: monospace; pointer-events: none;
+  transition: opacity 0.5s;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <button class="btn" onclick="changeMode()">Next palette</button>
+  <button class="btn" onclick="togglePause()">Pause</button>
+  <button class="btn" onclick="reset()">Reset</button>
+</div>
+<div id="info">move to flow · click to attract · touch supported</div>
+<div id="palette-name"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const paletteName = document.getElementById('palette-name');
+
+let W, H, particles = [], frame = 0;
+let mouseX = -9999, mouseY = -9999, clicking = false, paused = false;
+let paletteIndex = 0;
+let fadeTimer = null;
+
+const palettes = [
+  { name: 'aurora',   colors: ['#6C63FF','#00D4AA','#FF6B9D','#4FC3F7','#B39DDB'] },
+  { name: 'ember',    colors: ['#FF6B6B','#FFE66D','#FF8C42','#C0392B','#F39C12'] },
+  { name: 'ocean',    colors: ['#00B4DB','#0083B0','#00F260','#0575E6','#21D4FD'] },
+  { name: 'blossom',  colors: ['#a18cd1','#fbc2eb','#ffecd2','#fcb69f','#ff9a9e'] },
+  { name: 'acid',     colors: ['#39FF14','#00FFFF','#FF00FF','#FFFF00','#FF6B35'] },
+  { name: 'midnight', colors: ['#4a00e0','#8e2de2','#2980b9','#6dd5fa','#ffffff'] },
+];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+
+function noise(x, y, t) {
+  return (
+    Math.sin(x * 0.008 + t * 0.4) * Math.cos(y * 0.006 + t * 0.3) +
+    Math.sin(x * 0.013 - y * 0.009 + t * 0.25) * 0.5 +
+    Math.cos(x * 0.005 + y * 0.011 + t * 0.5) * 0.3
+  );
+}
+
+function spawnParticle() {
+  const pal = palettes[paletteIndex].colors;
+  return {
+    x: Math.random() * W,
+    y: Math.random() * H,
+    vx: 0, vy: 0,
+    life: 0,
+    maxLife: 120 + Math.random() * 220,
+    size: 0.7 + Math.random() * 2,
+    color: pal[Math.floor(Math.random() * pal.length)],
+    speed: 0.5 + Math.random() * 1.4,
+    trail: []
+  };
+}
+
+function reset() {
+  particles = [];
+  for (let i = 0; i < 700; i++) particles.push(spawnParticle());
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+}
+
+function changeMode() {
+  paletteIndex = (paletteIndex + 1) % palettes.length;
+  const name = palettes[paletteIndex].name;
+  particles.forEach(p => {
+    const pal = palettes[paletteIndex].colors;
+    p.color = pal[Math.floor(Math.random() * pal.length)];
+  });
+  paletteName.style.opacity = '1';
+  paletteName.textContent = name;
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => paletteName.style.opacity = '0', 1800);
+}
+
+function togglePause() {
+  paused = !paused;
+  document.querySelector('.btn:nth-child(2)').textContent = paused ? 'Resume' : 'Pause';
+  if (!paused) loop();
+}
+
+function update() {
+  frame++;
+  const t = frame * 0.005;
+  particles.forEach(p => {
+    p.life++;
+    if (p.life > p.maxLife) { Object.assign(p, spawnParticle()); return; }
+
+    const angle = noise(p.x, p.y, t) * Math.PI * 2.5;
+    const fx = Math.cos(angle) * p.speed;
+    const fy = Math.sin(angle) * p.speed;
+
+    const dx = mouseX - p.x, dy = mouseY - p.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    if (clicking) {
+      const force = Math.min(180 / (dist * dist), 3.5);
+      p.vx += (dx / dist) * force;
+      p.vy += (dy / dist) * force;
+    } else if (dist < 140) {
+      p.vx += (dx / dist) * 0.35;
+      p.vy += (dy / dist) * 0.35;
+    }
+
+    p.vx = (p.vx + fx) * 0.88;
+    p.vy = (p.vy + fy) * 0.88;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x < 0) p.x = W;
+    if (p.x > W) p.x = 0;
+    if (p.y < 0) p.y = H;
+    if (p.y > H) p.y = 0;
+
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 10) p.trail.shift();
+  });
+}
+
+function draw() {
+  ctx.fillStyle = 'rgba(10,10,15,0.16)';
+  ctx.fillRect(0, 0, W, H);
+
+  particles.forEach(p => {
+    if (p.trail.length < 2) return;
+    const alpha = Math.min(p.life / 30, 1) * (1 - p.life / p.maxLife);
+
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.lineWidth = p.size;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(p.trail[0].x, p.trail[0].y);
+    for (let i = 1; i < p.trail.length; i++) ctx.lineTo(p.trail[i].x, p.trail[i].y);
+    ctx.stroke();
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * 0.85, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+function loop() {
+  if (paused) return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+canvas.addEventListener('mousedown', () => clicking = true);
+canvas.addEventListener('mouseup', () => clicking = false);
+canvas.addEventListener('mouseleave', () => { mouseX = -9999; mouseY = -9999; clicking = false; });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+  clicking = true;
+  mouseX = e.touches[0].clientX;
+  mouseY = e.touches[0].clientY;
+});
+canvas.addEventListener('touchend', () => { clicking = false; mouseX = -9999; mouseY = -9999; });
+
+window.addEventListener('resize', () => { resize(); reset(); });
+
+resize();
+reset();
+loop();
+</script>
+</body>
+</html>
